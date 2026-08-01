@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Memory Match</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700&family=Nunito:wght@600;800&display=swap" rel="stylesheet">
+<style>
+:root{ --bg:#0e0f12; --surface:#181b20; --ink:#eceef2; --muted:#9aa2ad; --hairline:#2a2f37; --accent:#5ad1c8; --warn:#f5be3d; }
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:'Nunito',sans-serif;
+  min-height:100vh;
+  padding:32px 20px;
+  background-image:radial-gradient(var(--hairline) 1px, transparent 1px);
+  background-size:22px 22px;
+}
+.wrap{max-width:940px;margin:0 auto}
+h1{font-family:'Baloo 2',cursive;font-weight:700;font-size:44px;letter-spacing:-1px;line-height:1}
+.sub{color:var(--muted);font-size:15px;margin-top:8px;max-width:480px}
+h2{font-family:'Baloo 2',cursive;font-weight:700;font-size:18px;margin-bottom:14px}
+.grid{display:grid;grid-template-columns:1.5fr 1fr;grid-auto-rows:min-content;gap:18px;margin-top:28px}
+.card{background:var(--surface);border:1px solid var(--hairline);border-radius:22px;padding:26px}
+.hero{grid-column:1;grid-row:1 / span 2;display:flex;flex-direction:column}
+.side{grid-column:2}
+.board{display:grid;gap:12px;margin-top:8px}
+.tile{aspect-ratio:3/4;border:1px solid var(--hairline);border-radius:14px;background:var(--bg);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:28px;user-select:none;color:transparent}
+.tile.up{background:var(--surface);border-color:var(--accent);color:var(--ink)}
+.tile.done{background:var(--bg);border-color:var(--hairline);opacity:.35}
+.stat-row{display:flex;justify-content:space-between;align-items:baseline;padding:10px 0;border-bottom:1px solid var(--hairline)}
+.stat-row:last-child{border-bottom:none}
+.stat-label{color:var(--muted);font-size:14px;display:flex;align-items:center;gap:8px}
+.stat-label svg{width:16px;height:16px;stroke:var(--muted);fill:none;stroke-width:2}
+.stat-val{font-family:'Baloo 2',cursive;font-weight:700;font-size:22px}
+.diff{display:flex;gap:8px;margin-bottom:14px}
+.diff button{flex:1;border:1px solid var(--hairline);background:var(--bg);color:var(--muted);font-family:'Nunito';font-weight:800;font-size:13px;padding:9px 0;border-radius:12px;cursor:pointer}
+.diff button.active{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+.btn{width:100%;border:1px solid var(--hairline);background:var(--bg);color:var(--ink);font-family:'Nunito';font-weight:800;font-size:15px;padding:13px 0;border-radius:14px;cursor:pointer;margin-top:12px;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+.win{color:var(--warn);font-family:'Baloo 2',cursive;font-weight:700;font-size:16px;text-align:center;margin-top:16px;min-height:20px}
+.rules{color:var(--muted);font-size:13px;line-height:1.6}
+.rules b{color:var(--ink)}
+@media(max-width:720px){.grid{grid-template-columns:1fr}.hero,.side{grid-column:1;grid-row:auto}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Memory Match</h1>
+    <p class="sub">Flip two cards a turn. Match every pair in as few moves as you can.</p>
+  </header>
+  <div class="grid">
+    <section class="card hero">
+      <h2>The Board</h2>
+      <div class="board" id="board"></div>
+      <div class="win" id="win"></div>
+    </section>
+    <section class="card side">
+      <h2>Stats</h2>
+      <div class="stat-row"><span class="stat-label"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg>Moves</span><span class="stat-val" id="moves">0</span></div>
+      <div class="stat-row"><span class="stat-label"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Time</span><span class="stat-val" id="time">0:00</span></div>
+      <div class="stat-row"><span class="stat-label"><svg viewBox="0 0 24 24"><path d="M4 17l6-6 4 4 6-6"/></svg>Best</span><span class="stat-val" id="best">—</span></div>
+    </section>
+    <section class="card side">
+      <h2>Controls</h2>
+      <div class="diff" id="diff">
+        <button data-r="3" data-c="4">Easy</button>
+        <button data-r="4" data-c="4" class="active">Classic</button>
+        <button data-r="4" data-c="6">Hard</button>
+      </div>
+      <button class="btn primary" id="new"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 018-8 8 8 0 017 4M20 4v4h-4"/><path d="M20 12a8 8 0 01-8 8 8 8 0 01-7-4M4 20v-4h4"/></svg>New Game</button>
+      <div class="rules" style="margin-top:18px"><b>How to play:</b> click a card to flip it. Flip a second — if they match they lock, otherwise both flip back. Clear the board to win.</div>
+    </section>
+  </div>
+</div>
+<script>
+const boardEl=document.getElementById('board');
+const movesEl=document.getElementById('moves');
+const timeEl=document.getElementById('time');
+const bestEl=document.getElementById('best');
+const winEl=document.getElementById('win');
+const symbols=['🍎','🍌','🍇','🍑','🍍','🥝','🍒','🥭','🍉','🍓','🍐','🫐'];
+
+let rows=4, cols=4, deck=[], flipped=[], moves=0, matched=0, lock=false, started=false, startTime=0, timer=null;
+
+/** shuffle returns a new array with Fisher-Yates ordering. */
+const shuffle=arr=>{
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+};
+
+/** deal builds a shuffled deck of pairs and renders the board. */
+function deal(){
+  stopTimer();
+  const pairs=(rows*cols)/2;
+  const chosen=symbols.slice(0,pairs);
+  deck=shuffle([...chosen,...chosen]).map((sym,i)=>({id:i,sym,up:false,done:false}));
+  moves=0;matched=0;flipped=[];lock=false;started=false;
+  movesEl.textContent=0;timeEl.textContent='0:00';winEl.textContent='';
+  render();
+  loadBest();
+}
+
+/** render draws the current deck state into the board grid. */
+function render(){
+  boardEl.style.gridTemplateColumns=`repeat(${cols},1fr)`;
+  boardEl.innerHTML='';
+  deck.forEach(c=>{
+    const d=document.createElement('div');
+    d.className='tile'+(c.up?' up':'')+(c.done?' done':'');
+    d.textContent=(c.up||c.done)?c.sym:'';
+    d.onclick=()=>flip(c.id);
+    boardEl.appendChild(d);
+  });
+}
+
+/** flip reveals a card and resolves a pair when two are face-up. */
+function flip(id){
+  if(lock) return;
+  const c=deck[id];
+  if(c.up||c.done) return;
+  if(!started) startTimer();
+  c.up=true;flipped.push(c);render();
+  if(flipped.length===2){
+    moves++;movesEl.textContent=moves;
+    const [a,b]=flipped;
+    if(a.sym===b.sym){
+      a.done=b.done=true;matched+=2;flipped=[];render();
+      if(matched===deck.length) winGame();
+    }else{
+      lock=true;
+      setTimeout(()=>{ a.up=b.up=false;flipped=[];lock=false;render(); },700);
+    }
+  }
+}
+
+/** startTimer begins the play clock. */
+function startTimer(){
+  started=true;startTime=Date.now();
+  timer=setInterval(()=>{
+    const s=Math.floor((Date.now()-startTime)/1000);
+    timeEl.textContent=`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+  },250);
+}
+function stopTimer(){ if(timer){clearInterval(timer);timer=null;} }
+
+/** winGame stops the clock and records a best score. */
+function winGame(){
+  stopTimer();
+  const s=Math.floor((Date.now()-startTime)/1000);
+  winEl.textContent=`Cleared in ${moves} moves · ${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+  const key='memory-best-'+rows+'x'+cols;
+  const prev=+localStorage.getItem(key)||Infinity;
+  if(moves<prev){localStorage.setItem(key,moves);loadBest();}
+}
+
+function loadBest(){
+  const v=localStorage.getItem('memory-best-'+rows+'x'+cols);
+  bestEl.textContent=v?v+' moves':'—';
+}
+
+document.getElementById('new').onclick=deal;
+document.getElementById('diff').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  [...document.querySelectorAll('#diff button')].forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); rows=+b.dataset.r; cols=+b.dataset.c; deal();
+});
+
+deal();
+</script>
+</body>
+</html>
